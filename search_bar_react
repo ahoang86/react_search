@@ -1,0 +1,93 @@
+import React, { useState, useEffect } from 'react';
+
+const SearchBar = ({ onSearch }) => {
+  const [searchText, setSearchText] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [selectedResult, setSelectedResult] = useState(null);
+  const [pairings, setPairings] = useState([]);
+
+  const handleSearch = async () => {
+    try {
+      const response = await fetch(`https://world.openfoodfacts.org/api/2/search?search_terms=${searchText}`);
+      const data = await response.json();
+      setSearchResults(data.products);
+    } catch (error) {
+      console.error('Error searching:', error);
+    }
+  };
+
+  const handleKeyPress = event => {
+    if (event.key === 'Enter') {
+      handleSearch();
+    }
+  };
+
+  const handleClearSearch = () => {
+    setSearchText('');
+    setSearchResults([]);
+    setSelectedResult(null);
+    setPairings([]);
+  };
+
+  useEffect(() => {
+    const updateSearchBarWidth = () => {
+      setSearchBarWidth(window.innerWidth * 0.8);
+    };
+
+    window.addEventListener('resize', updateSearchBarWidth);
+
+    return () => {
+      window.removeEventListener('resize', updateSearchBarWidth);
+    };
+  }, []);
+
+  const handleResultPress = async result => {
+    setSelectedResult(result);
+
+    try {
+      const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${result.code}.json`);
+      const data = await response.json();
+      const extractedPairings = data.product.ingredients_analysis_tags.map(pairing => pairing.replace(/^en:/, ''));
+      setPairings(extractedPairings);
+    } catch (error) {
+      console.error('Error fetching pairings:', error);
+    }
+  };
+
+  return (
+    <div className="search-bar">
+      <input
+        type="text"
+        value={searchText}
+        onChange={e => setSearchText(e.target.value)}
+        placeholder="Search by name or ingredients"
+        onKeyPress={handleKeyPress}
+      />
+      <ul>
+        {searchResults.map(result => (
+          <li key={result.code} onClick={() => handleResultPress(result)}>
+            {result.product_name}
+          </li>
+        ))}
+      </ul>
+      {selectedResult && (
+        <div>
+          <p>Selected Result: {selectedResult.product_name}</p>
+          {pairings.length > 0 && (
+            <div>
+              <p>Pairings:</p>
+              <ul>
+                {pairings.map((pairing, index) => (
+                  <li key={index}>{pairing}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+      <button onClick={handleClearSearch}>Clear Search</button>
+    </div>
+  );
+};
+
+export default SearchBar;
